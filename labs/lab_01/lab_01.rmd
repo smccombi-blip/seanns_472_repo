@@ -1,0 +1,139 @@
+---
+title: "lab_01"
+author: "Derek Willis, adapted by Aidan Hughes"
+date: "2026-08-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Turn off scientific notation
+options(scipen=999)
+```
+
+## About this lab
+
+To complete this lab, you need to: \* run existing code as directed (look for **Task**). \* modify existing code as directed (look for **Task**). \* write code in empty codeblocks provided to answer questions included (look for **Q**). \* write out the answer in the form of a complete sentence in the space given (look for **A**). When you are finished, commit changes and push to your personal GitHub repo, then submit the URL to this document on ELMS.
+
+Remember to add any new verbs or concepts to your reference notebook!
+
+## Load libraries and establish settings
+
+**Task** Run the codeblock below to load the Tidyverse. To run the codeblock, hit the little green play button in the upper right corner of the gray area (the codeblock) below.
+
+```{r}
+# Load the tidyverse. If you have not installed the tidyverse already, remove the # from the next line and run it first.  
+# install.packages('tidyverse')
+library(tidyverse)
+```
+
+## Load Data
+
+We're going to load the slice of WinRed contribution data from West Virginia, which is in a file called `lab_01.rds`
+
+**Task** Using the example from the pre_lab, write code to load the RDS file and assign it to a good variable name.
+
+```{r}
+westvirginia_winred_contributions <- read_rds("lab_01.rds")
+```
+
+## Examine Data
+
+**Task** Run the codeblock below to use glimpse to get a sense of the column names, types and sample data.
+
+```{r}
+# put the name of your data set, which you named in the last step, inside the () below
+glimpse(westvirginia_winred_contributions)
+```
+
+
+**Q1** How many rows and columns does this dataframe have?
+
+
+**A1** 40,441 rows and 24 columns. 
+
+
+## Answer questions
+
+**Q2** Which West Virginia city provided the largest number of contributions? How many?
+
+Hint: you'll need to use group_by() |> summarise() here. What column are we grouping by? Then, what should go inside the summarise() part? Then, rather than clicking through the 500+ cities to find the largest one, use the same function we used in our pre-lab to sort the data from largest number to the smallest.
+
+**A2** Charleston with 3,226 contributions.
+
+```{r}
+westvirginia_winred_contributions |>
+  group_by(city) |>
+  summarise(
+    count_contribs = n()
+  ) |>
+  arrange(desc(count_contribs))
+```
+
+**Q3** Which West Virginia cities accounted for the fewest contributions? You don't have to name all of them, but list a few. How many of those cities are there, roughly speaking?
+
+**A3** Some examples are Allen Junction, Alum Bridge, Bridgeport, Bergoo, and Bloomingrose. There are a total of 63 cities with one contribution.
+
+```{r}
+westvirginia_winred_contributions |>
+  group_by(city) |>
+  summarise(
+    count_contribs = n()
+  ) |>
+  arrange(desc(count_contribs))
+```
+
+**Q4** What's your best educated guess to explain why the city identified in question 2 had more contributions compared to the cities identified in question 3? Hint: you won't find the answer in the data, you'll need to do some quick web research. You do not need to write any code for this question, so no codeblock is provided.
+
+**A4** Charleston likely received the most contributions because it is the state's capital, as well as having a larger population comparted to other West Virginia cities. 
+
+**Q5** What recipient got the largest total amount of money? How many contributions did it receive? And what was the average donation it received?
+
+Hint: Since there three distinct questions here, you'll need to do multiple things inside summarise() this time.
+
+Hint 2: "aggregate_amount" is NOT the column you want to use here.
+
+**A5** The recipient that got the most amount of money is Trump National Committee JFC, Inc. This recipient received a total of 14,063 contributions, with the average donation being $32.99.
+
+```{r}
+westvirginia_winred_contributions |>
+  group_by(memo_text) |>
+  summarise(
+    count_contribs = n(),
+    total_amount = sum(amount),
+    mean_amount = mean(amount)
+  ) |>
+  arrange(desc(total_amount))
+```
+
+**Q6** What is that top recipient and what explains its popularity? Hint: this will require web research, you won't be able to answer this purely from the data set. You do not need to write any code for this question, so no codeblock is provided.
+
+**A6** The top recipient is Trump National Committee JFC Inc. West Virginia is historically one of the most Trump-favoring states and has also voted in favor of Republican presidential candidates throughout the 21st century so far. Trump's campaign also works heavily to get donations from West Virginia citizens through chain messages and emails. 
+
+**BONUS POINTS (do this last / only if you have time at the end)** you might notice that a lot of the top recipient committees seem to be tied to the same person, and some even have nearly-identical committee names. What might be going on here? (You don't need to get this RIGHT, just give me an educated guess or two.)
+
+**BONUS POINTS A** There could be multiple recipient committees tied to the same person because there could be different organizations that bleed into each other across different counties in the state. For example, there could be a Trump National Committee JFC Inc. donation program in Charleston and a different one in Morgantown. 
+
+**Q7**. Using the answer from A5 as a starting point, produce a summary table that has the following information for each recipient: \* count of contributions \* total amount of all contributions \* the average contribution amount \* the median contribution amount \* the smallest contribution amount \* the largest contribution amount
+
+Store it as a variable object called `wv_summary` so that you can examine it with the data viewer. What newsworthy nuggets jump out at you that you could imagine dropping into a news story? Write a few summary sentences with overall findings.
+
+**A7**. I find it interesting that there is a refunded amount of contribution funds. What is the reasoning for that? I'm curious to know if that donation money was not used for its proper purpose and people complained, leading to the refunding of the donation funds. There are also multiple Charlestons in the location data. I would like to find out if the reasoning for that is similar to the committee name repeats. Finally, I'd love to learn why there are over sixty parties with one contribution. How does a party become valid for donations? 
+
+```{r}
+westvirginia_winred_contributions |>
+  group_by(memo_text) |>
+  summarise(
+    count_contribs = n(),
+    total_amount = sum(amount),
+    mean_amount = mean(amount),
+    median_amount = median(amount),
+    smallest_amount = min(amount),
+    largest_amount = max(amount)
+  ) |>
+  arrange(desc(count_contribs))
+```
+
+```{r}
+(westvirginia_data <- ("wv_data.csv"))
+```
