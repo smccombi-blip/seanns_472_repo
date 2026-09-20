@@ -1,0 +1,110 @@
+---
+title: "lab_03"
+author: "Derek Willis, adapted by Aidan Hughes"
+date: "2024-08-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load libraries and establish settings
+
+```{r}
+# Turn off scientific notation
+options(scipen=999)
+
+# Load the tidyverse
+library(tidyverse)
+
+# Load janitor
+library(janitor)
+```
+
+### Load data
+
+```{r}
+# Load MD slice of FEC House candidate contribution data
+md_contribs <- read_rds("data/lab_03.rds")
+```
+
+### Do this first: Fix header issues
+
+You'll need to fix one issue with the column names using janitor. Write a code block to do that, making sure that you save the results to the same dataframe.
+
+```{r}
+cleaned_md_contribs <- md_contribs |>
+  clean_names()
+```
+
+
+### **Q1**: Which seven cities in Maryland had the largest *number* of contributions from donors? How many did each have? To answer this question, you'll have to clean the messy "contributor_city" field.
+
+Note: To answer this question, you'll need to see every variation of the "contributor_city" for the top seven cities, which you should identify through some initial analysis. Then find variations of them and change those variations into the most common version.
+
+Hint: you should be starting out with a group_by and summarize just like we did in week 1 and 2. That'll help you identify the top seven names, and then you can click through the data to find variations of those names.
+
+Then, look back at Task 15 in Pre-Lab 3 for a clue about how to update specific values. Don't forget, you'll need a step at the end to ensure that everything aside from the values you're changing stay as the default value.
+
+**A1**: The seven cities with the largest number of contributions are Bethesda (1,177), Chevy Chase (704), Baltimore, (691), Annapolis (492), Potomac (490), Silver Spring (405), and Rockville (358). 
+
+```{r}
+cleaned_md_contribs |>
+  group_by(contributor_city) |>
+  summarise(
+    count_contribs = n())
+```
+
+### **Q2:** Find the 5-digit ZIP code in Maryland that had the highest total amount of contributions (by dollar value).
+
+Where is that zip code and what kind of area is it, demographically? Which committee is the largest recipient of money from that zip code? How many of the top five recipients are Maryland candidates?
+
+Hint: You will need to use mutate and str_sub to ensure that you have a zip code column with the first five characters from the existing zip code column.
+
+Other functions you'll need afterwards are filter, group by, summarise, and arrange.
+
+Break this down into individual steps and check your work along the way. That'll make this question more manageable.
+
+**A2:** The ZIP code in Maryland with the highest total amount of contributions is 20850, with a total contribution value of $53,280.31. This zip code belongs to Rockville, Maryland. 
+
+```{r}
+cleaned_md_contribs |>
+  mutate(contributor_zip = as.numeric(contributor_zip)) |> 
+  mutate(contributor_zip = str_sub(contributor_zip, start=1L, end=5L)) |>
+filter(contribution_receipt_amount > "5000.00") |>
+  group_by(contributor_zip) |>
+  summarise(total_amount=sum(contribution_receipt_amount)) |>
+  arrange(desc(total_amount))
+```
+
+### **Q3:**
+
+Let's look at top individual donors. Write code to generate a list of top donors in each city, adding up the total amount of contributions. What does the original data say about the top two donors - who are they and what do they do? Do you see anything in the list of top 10 donors that would make you uncertain about the accuracy of these results?
+
+Hint: you'll need to put two columns in a group_by to answer this question. What are the two categories you're trying to group the data by? Look back at Task 8 in Pre-lab 1 if you need a reminder of how to do this.
+
+**A3:** The top two donors are an executive at Rowny Capital in Bethesda ($9,900) and 
+
+```{r}
+
+```
+
+### **BONUS QUESTION**
+
+### **Q:** What's another problem you can identify in the data? How would it impact your ability to do an accurate analysis of something? (Three bonus points)
+
+### Then, write code that would fix the issue. (Five bonus points)
+
+**A:**
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+
