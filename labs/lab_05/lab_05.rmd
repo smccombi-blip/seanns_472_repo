@@ -17,6 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Getting Started
 
+THIS IS A TEST
+
 This week we'll be combining and joining data to make it more useful and to ask some questions about it. We'll revisit our new Maryland voters data and try to join it with contributions to the Harris campaign from Maryland donors made via ActBlue. Can we find new voters who are not registered Democrats who gave to Harris after she became a presidential candidate on July 21? What, if anything, can we say about those people?
 
 We'll be doing something similar to what Ence Morse did for [this Washington Post story](https://www.washingtonpost.com/politics/2024/09/24/kamala-harris-younger-donors/?pwapi_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyZWFzb24iOiJnaWZ0IiwibmJmIjoxNzI3MzIzMjAwLCJpc3MiOiJzdWJzY3JpcHRpb25zIiwiZXhwIjoxNzI4NzA1NTk5LCJpYXQiOjE3MjczMjMyMDAsImp0aSI6ImIwYWMxNTk4LWMwMDgtNDE5Ny04MjAyLWVmMWNjZWFmYWZiMiIsInVybCI6Imh0dHBzOi8vd3d3Lndhc2hpbmd0b25wb3N0LmNvbS9wb2xpdGljcy8yMDI0LzA5LzI0L2thbWFsYS1oYXJyaXMteW91bmdlci1kb25vcnMvIn0.3-s0tBkMV7Y9DD21CBsKMlaliGlOKT2egCO-UFT735Y), just on a smaller scale.
