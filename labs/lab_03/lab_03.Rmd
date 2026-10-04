@@ -84,10 +84,17 @@ Let's look at top individual donors. Write code to generate a list of top donors
 
 Hint: you'll need to put two columns in a group_by to answer this question. What are the two categories you're trying to group the data by? Look back at Task 8 in Pre-lab 1 if you need a reminder of how to do this.
 
-**A3:** The top two donors are an executive at Rowny Capital in Bethesda ($9,900) and 
+**A3:** The original data tells us that the top two donors are Michael Rowny, an executive at Rowny Capital ($9,900) and Arlene Hillerson, a self-employed real estate agent ($6,600). I noticed in the list of top donors from the original table that there are over ten entries worth
+$6,600. As that is an abnormal donation amount, it makes me question if one donation was entered more than
 
 ```{r}
-
+cleaned_md_contribs |>
+mutate(contributor_zip = as.numeric(contributor_zip)) |>
+mutate(contributor_zip = str_sub(contributor_zip, start-1L, end-5L)) |>
+filter(contribution_receipt_amount > "5000.00") |>
+group_by(contribution_receipt_amount) |>
+summarise(total_amount-sum(contribution_receipt_amount)) |>
+arrange(desc(total_amount))
 ```
 
 ### **BONUS QUESTION**
@@ -96,14 +103,16 @@ Hint: you'll need to put two columns in a group_by to answer this question. What
 
 ### Then, write code that would fix the issue. (Five bonus points)
 
-**A:**
+**A:** Some of the contributions have been earmarked, which means the money isn't given directly to organizations and candidates, but rather a party. This would make me how many organizations are directly receiving contributions and if the total amounts are accurate.
 
 ```{r}
-
-```
-
-```{r}
-
+cleaned_md_contribs |>
+mutate(contributor_zip = as.numeric(contributor_zip)) |>
+mutate(contributor_zip = str_sub(contributor_zip, start-1L, end-5L)) |>
+filter(receipt_type_desc = "CONTRIBUTION") |>
+group_by(contributor_zip) |>
+summarise(total_amount-sum(contribution_receipt_amount)) |>
+arrange(desc(total_amount))
 ```
 
 
