@@ -17,8 +17,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Getting Started
 
-THIS IS A TEST
-
 This week we'll be combining and joining data to make it more useful and to ask some questions about it. We'll revisit our new Maryland voters data and try to join it with contributions to the Harris campaign from Maryland donors made via ActBlue. Can we find new voters who are not registered Democrats who gave to Harris after she became a presidential candidate on July 21? What, if anything, can we say about those people?
 
 We'll be doing something similar to what Ence Morse did for [this Washington Post story](https://www.washingtonpost.com/politics/2024/09/24/kamala-harris-younger-donors/?pwapi_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyZWFzb24iOiJnaWZ0IiwibmJmIjoxNzI3MzIzMjAwLCJpc3MiOiJzdWJzY3JpcHRpb25zIiwiZXhwIjoxNzI4NzA1NTk5LCJpYXQiOjE3MjczMjMyMDAsImp0aSI6ImIwYWMxNTk4LWMwMDgtNDE5Ny04MjAyLWVmMWNjZWFmYWZiMiIsInVybCI6Imh0dHBzOi8vd3d3Lndhc2hpbmd0b25wb3N0LmNvbS9wb2xpdGljcy8yMDI0LzA5LzI0L2thbWFsYS1oYXJyaXMteW91bmdlci1kb25vcnMvIn0.3-s0tBkMV7Y9DD21CBsKMlaliGlOKT2egCO-UFT735Y), just on a smaller scale.
@@ -62,7 +60,7 @@ You'll want to minimize the amount of rows that this is happening to by picking 
 ```{r}
 # join the combined Harris file to the new voters
 # you will need to determine what columns to use
-combined_donations_with_new_voters <- combined_donations |> inner_join(new_voters, join_by(COUNTY==NAME))
+combined_donations_with_new_voters <- combined_donations |> inner_join(new_voters, join_by(address_one==Address, last_name==LastName, first_name==FirstName)) 
 ```
 
 ## Answer questions
@@ -71,27 +69,18 @@ combined_donations_with_new_voters <- combined_donations |> inner_join(new_voter
 **Q1. Explain why you used the columns you did to make the join, and why that result is better than other ways you tried. Are there any problems with the join you made, such as the possibility of false positives?**
 
 
-A1. 
+A1. I used the columns I did to make the join as combining the columns with same addresses helps me find which donors are also new voters much quicker. I also combined by first and last name to keep the names together, in correlation with the addresses. 
 
 
 **Q2. Based on your join, how many donations to Harris have come from people who registered this year? How many unique people does that represent, and which donors have given the largest _number_ of donations since July 20?** 
 
-A2.
-
-
-```{r}
-```
+A2. 365 donations have come from people who registered this year. This does not represent much of the overall combined 85,000+ donations. Since July 20th, the largest donation comes from Emily Duncan who donated $2,500.
 
 
 **Q3. What are the party and gender breakdowns of those donors? How many donations has Harris gotten from non-Democrats?**
 
 
-A3.
-
-
-```{r}
-
-```
+A3. The majority of the donations came from Democrats. There were 38 donations from non-Democrats.
 
 
 **Q4. Choose your own adventure: I want you to come up with a question you could ask of one of the dataframes we've created for this lab. It could involve just the new voters, or the donors or the joined dataframe, but it cannot be a variation of a previous question (so, for example, you can't ask, "How many Republicans have given to Harris").**
@@ -99,17 +88,27 @@ A3.
 **First write the question and then try to answer it by writing code. If you're not sure of the exact code, try googling (or ask me for advice) but, at a minimum, describe what you think you'd have to do to answer it and what the results would look like. That can help.**
 
 
-A4:
+A4:I am curious to know how many of these new voters who donated were born in the 21st century. I can filter the most recent dataframe to only show me the donors born past 2000-01-01.
+
+```{r}
+ combined_donations_with_new_voters |>
+filter(BirthDate > "2000-01-01") |>
+  summarise(total_amount=sum(amount)) |>
+  arrange(desc(total_amount))
+```
+
 
 
 **BONUS QUESTION: What's another publicly available data set you could join with these to ask additional questions? You'll need to provide a link to the data, what question(s) it would allow you to ask, and briefly describe any issues that might prevent you from joining the data without additional cleaning or manipulation (2 points).**
 
-
+I want to add the September donation data to see if the ration of Democratic to non-Democratic voters is still roughly the same. 
 
 **Then, download the data and add it to the "data" folder of this lab. Write the code needed to perform the join. (4 points)**
 
 ```{r}
-
+september_donations <- read_csv("data/september_harris.csv") 
+all_combined_donations <- bind_rows(july_donations, august_donations, september_donations)
+all_combined_donations_with_new_voters <- all_combined_donations |> inner_join(new_voters, join_by(address_one==Address, last_name==LastName, first_name==FirstName)) 
 ```
 
 
