@@ -1,7 +1,7 @@
 ---
 title: "Reverse Engineering Project"
-author: "Student names here"
-date: "Date here"
+author: "Maya, Seann, Isabelle"
+date: "2026-11-12"
 output:
   html_document:
     theme: cerulean
@@ -18,15 +18,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction 
 
-In this notebook, we are reverse engineering the story, [STORY NAME](STORY URL)
+In this notebook, we are reverse engineering the story, [Boulder is not as politically polarized as you might think, election data show](https://boulderreportinglab.org/2023/12/18/boulder-is-not-as-politically-polarized-as-you-might-think-election-data-show/)
 
 ## Load libraries
 
 Loading required libraries for this analysis.
 
 ```{r echo=FALSE, message=FALSE}
+# Turn off scientific notation
 options(scipen=999)
-install.packages("tidyverse") 
+# load the tidyverse
 library(tidyverse)
 ```
 
@@ -34,36 +35,135 @@ library(tidyverse)
 
 In this section, describe the source of the data, write a basic data dictionary for data you are working with, and discuss any caveats or issues you discovered working with this data. 
 
+Old info that relates to upcoming:
+When we first loaded in the data ( https://assets.bouldercounty.gov/wp-content/uploads/2023/11/Redacted-2023Coordinated-CVR.xlsx ; from https://bouldercounty.gov/elections/by-year/2023-election/), we found issues since the column names we needed were not the first row. So we went into the excel sheet and made it so that the first row had the column names CvrNumber, TabulatorNum, BatchId, RecordId, ImprintedId, BallotType; and then the names of each candidate (keeping the numbers in parentheses to represent the rankings 1-4 for mayoral candidates). We deleted the row with government position. We exported the adjusted file as a CSV to put in the data folder for the project.
+
+#THEN, WE UNDID THAT CODE and loaded the data into R AS IS to do that cleaning in R. Keeping the info here because it did help us visualize what we needed to do and it explains some of the things in the codeblocks.
+
+Side note: We also discovered from our first loading of data that the first data we used (the data linked in the story) was from 2026. It was on a webpage that updates with the latest voter data. We noticed that the candidate names in this story were not in there. So we found the 2023 Cast Vote Record (not linked in the story, linked above).
+
+We're not sure why many government positions (represented in column names) contain no data-- not zeros and ones, just blank cells all the way down.
+
+
 ```{r}
-# Load required data
+# Load the 2023 Boulder City Cast Vote Record data
+CVR <- read_csv("data/Redacted-2023Coordinated-CVR-OG.csv")
+```
 
-# Path to data should be loaded from folder "data" i.e. read_csv("data/name_of_data.csv")
+ChatGPT Convo: https://chatgpt.com/share/6acf19a2-e4e8-83ea-9d36-a6e0c904d797
 
-# Clean required data and prepare for analysis if needed. 
+```{r}
+# Clean required data and prepare for analysis if needed.
 
-boulder_2023_final <- read_csv("data/boulder2023final.csv")
+library(janitor)
+
+# make what is currently row two become the column names and eliminate rows above (rows = row one and currently-column-name row)
+CVR <- row_to_names(CVR, row_number = 2)
+
+# rename the now-empty column name cells based on position. Chose position instead of by name because R did not automatically assign the first column a name. It named the second column "NA.1", the third column "NA.2", and so on.
+
+names(CVR)[1] <- "cvr_number"
+names(CVR)[2] <- "tabulator_num"
+names(CVR)[3] <- "batch_ID"
+names(CVR)[4] <- "record_ID"
+names(CVR)[5] <- "imprinted_ID"
+names(CVR)[6] <- "ballot_type"
+
+# now get rid of another row not need -- first row 
+CVR <- CVR[-1, ]
+
+# Column names "Yes/For.7" and "No/Against.7" represent votes for and against City of Boulder Ballot Question 302 (a column name which used to exist but we removed it because of the format of voting for candidates), which was the question about "Safe Zones 4 Kids." We will need this data in one of the questions. Let's extract it and save it to its own dataframe before deleting excess columns in the CVR dataframe.
+
+# before select columns, why not rename them
+
+CVR <- CVR |>
+  rename(
+    yes_safe_zones = `Yes/For.7`,
+    no_safe_zones = `No/Against.7`
+  )
+
+# not sure why the above column name change is not working. Will return to it later.
+# still want to extract those columns and put them into their own dataframe before deleting them and other columns with names that are not candidate names (starting after Elizabeth Kearney)
+
+safe_zones <- CVR |>
+  select(`Yes/For.7`,`No/Against.7`)
+
+# As with previous code attempted, error says that `Yes/For.7` does not exist. Will return to this later.
+# Will hold off for now on making safe_zones dataframe and removing excess from CVR dataframe
 
 ```
+
 
 ## Sentences to Engineer
 In this notebook, we are reverse engineering five sentences from the story.
 
 ### Sentence 1
 
-* **Sentence text**: [Paste in sentence to engineer here]
-* **Analysis summary**: [Write up two to three sentences describing the results of your analysis.  Were you able to confirm the finding? If not, why not?]
+* **Sentence text**: "According to the analysis by Boulder Reporting Lab, approximately 19% of voters cast their ballots for the entire Boulder Elevated slate, exclusively voting for its candidates."
+
+Plan:
+For this finding, we can filter the data for people who voted exclusively for Bob Yates for mayor and for Terri Brncic, Jennifer (Jenny) Robins, Tina Marquis, and Tara Winer for city council. The 19% statistic corrects some people's perception that most voters cast ballots for one slate of candidates.
+
+118,787 observations (aka rows) (will be denominator for getting percentage) in dataset
+
+From below work: 6,522 obs (aka rows aka people) voted exclusively for the Boulder Elevated slate.
+
+6,522/118,787 = 0.0549 = 5.5 % -> far from 19%. What went wrong?
+
+Denominator too big? Looked into it more. This data is for the whole county, not just Boulder City.
+
+So I found the denominator we want from this webpage https://bouldervotes.org/2023.html : "34,249 city ballots counted."
+
+--> 6,522/34,249 = 0.1904289176 = 19%
+
+ChatGPT Convo: https://chatgpt.com/share/6acf194b-6cc0-83e9-bbbe-7a957b454a5a
+
+* **Analysis summary**: See the above explanation and notes in the codeblocks below. We were able to calculate the desired 19% by dividing the number of people who voted for council members Terri Brncic, Jenny Robins, Tina Marquis, and Tara Winer; and ranked Bob Yates number one of the four mayoral candidates-- by the number of Boulder City ballots cast.
 
 ```{r}
 # Put code to reverse engineer sentence here
+CVR |>
+  filter(
+    `Bob Yates(1)`== 1,
+    `Terri Brncic` == 1,
+    `Jenny Robins` == 1,
+    `Tina Marquis` == 1,
+    `Tara Winer` == 1
+  ) |>
 
-# Display results of code below this codeblock
+# error says "Error in `filter()`: ! Can't transform a data frame with duplicate names. Run `rlang::last_trace()` to see where the error occurred."
+# don't know if R is treating the mayoral candidate names with different numbers in parentheses as duplicate names. I do not see repeats.
+# let's see; code below from
+# ChatGPT convo: https://chatgpt.com/share/6acf1b2f-64f4-83e9-a9a6-f4749c11cd50
+names(CVR)[duplicated(names(CVR))]
+
+# Ah yes. It's for those columns we were going to get rid of... those with "Yes/For" and "No/Against" have duplicates.
+# I will go ahead and make a new dataframe-- instead of changing the old one-- without the extra columns
+# remove columns by position easier than by name because range of many columns
+# found column numbers by looking in excel and using webpage "Excel Column Letter to Number Quick Reference" https://www.vishalon.net/blog/excel-column-letter-to-number-quick-reference
+CVR_candidates <- CVR |>
+  select(-(83:127))
+
+# now try earlier code chunk again but with new dataframe CVR_candidates
+CVR_candidates |>
+  filter(
+    `Bob Yates(1)`== 1,
+    `Terri Brncic` == 1,
+    `Jenny Robins` == 1,
+    `Tina Marquis` == 1,
+    `Tara Winer` == 1
+  ) |>
+  group_by(cvr_number)
+
+# I don't think the group_by is necessary, just following format we have been doing in class
+# "Display results of code below this codeblock" ->See visual that appears after run code above
 
 ```
 
 ### Sentence 2
 
-* **Sentence text**: [Paste in sentence to engineer here]
-* **Analysis summary**: [Write up two to three sentences describing the results of your analysis.  Were you able to confirm the finding? If not, why not?] 
+* **Sentence text**: "And about 29% of voters cast their ballots for the entire Boulder Progressive’s slate of candidates. Because Boulder Progressives only endorsed two city council candidates, this percentage includes ballots where voters supported any of the other candidates, including those endorsed by Boulder Elevated or those who were not endorsed by either of the two committees: Silas Atkins, Waylon Lewis, Aaron Gabriel Neyer, and Jacques Decalo."
+* **Analysis summary**: This code chunk displays the voters that ranked Aaron Brockett or Nicole Speer as #1 in the mayoral election, showcasing who placed a Progressive candidate at the top. This code also shows the voters who cast their ballots for Taishya Adams and Ryan Schuchard for Boulder City Council.
 
 ```{r}
 # Put code to reverse engineer sentence here
@@ -77,6 +177,224 @@ filter(
 # Display results of code below this codeblock
 
 ```
+
+Gemini Prompt Used: Do the rankings of mayoral candidates matter when searching for which voters cast their ballot for those candidates? (provided data file)
+
+Gemini Result:
+```python
+import pandas as pd
+
+df = pd.read_csv('boulder2023final.csv')
+print("Columns:", df.columns)
+print(df.head())
+
+
+```
+
+```text
+Columns: Index(['CvrNumber', 'TabulatorNum', 'BatchId', 'RecordId', 'ImprintedId',
+       'BallotType', 'Aaron Brockett(1)', 'Nicole Speer(1)', 'Bob Yates(1)',
+       'Paul Tweedlie(1)',
+       ...
+       'Unnamed: 117', 'Unnamed: 118', 'Unnamed: 119', 'Unnamed: 120',
+       'Unnamed: 121', 'Unnamed: 122', 'Unnamed: 123', 'Unnamed: 124',
+       'Unnamed: 125', 'Unnamed: 126'],
+      dtype='object', length=127)
+  CvrNumber  TabulatorNum  BatchId  RecordId ImprintedId BallotType  Aaron Brockett(1)  Nicole Speer(1)  Bob Yates(1)  Paul Tweedlie(1)  Aaron Brockett(2)  Nicole Speer(2)  Bob Yates(2)  Paul Tweedlie(2)  Aaron Brockett(3)  Nicole Speer(3)  Bob Yates(3)  Paul Tweedlie(3)  Aaron Brockett(4)  Nicole Speer(4)  Bob Yates(4)  Paul Tweedlie(4)  Terri Brncic  Jenny Robins  Aaron Gabriel Neyer  Jacques Decalo  Silas Atkins  Waylon Lewis  Ryan Schuchard  Tara Winer  Tina Marquis  Taishya Adams  Tim Barnes  JD Mangat  Eric Ryant  John W. Watson  Gala W. Orba  David Fridland  Crystal Gallegos  Ethan Augreen  Joan Peck  Terri Goon  Sean P. McCoy  Steve Altschuler  Beka Venturella  Nia Wassink  Diane Crist  Harrison Earl  Ron Gallegos  Gary Hodges  Susie Hidalgo-Fahring  Spencer Adams  Sherry Sommer  Chris Leh  Josh Cooperman  J. Caleb Dickinson  Deborah Fahey  George Colbert  Dietrich Hoefner  Barbara Hamlington  Jason Unger  Neil Fishman  Andrew Steffl  Alex Medler  Cynthia Nevison  Andrew Brandt  Lalenia Quinlan Aweida  Anil Kiran Pesaramelli  Stuart Lord  Jorge ChÃ¡vez  Kevin G. Morris  Kyri Cox  Brenda L. Wyss  Brad Shochat  Ryan Wilcken  Dawn Kirk  Nancy Rumfelt  Briah Freeman  Denise Alvine Chapman  Yazmin Navarro  Stu Boyd  Elizabeth Kearney  Unnamed: 82  Unnamed: 83  Unnamed: 84  Unnamed: 85  Unnamed: 86  Unnamed: 87  Unnamed: 88  Unnamed: 89  Unnamed: 90  Unnamed: 91  Unnamed: 92  Unnamed: 93  Unnamed: 94  Unnamed: 95  Unnamed: 96  Unnamed: 97  Unnamed: 98  Unnamed: 99  Unnamed: 100  Unnamed: 101  Unnamed: 102  Unnamed: 103  Unnamed: 104  Unnamed: 105  Unnamed: 106  Unnamed: 107  Unnamed: 108  Unnamed: 109  Unnamed: 110  Unnamed: 111  Unnamed: 112  Unnamed: 113  Unnamed: 114  Unnamed: 115  Unnamed: 116  Unnamed: 117  Unnamed: 118  Unnamed: 119  Unnamed: 120  Unnamed: 121  Unnamed: 122  Unnamed: 123  Unnamed: 124  Unnamed: 125  Unnamed: 126
+0         1         108.0      1.0     104.0   108-1-104      DS-01                1.0              0.0           0.0               0.0                0.0              1.0           0.0               0.0                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0           0.0           0.0                  0.0             0.0           1.0           0.0             1.0         1.0           0.0            1.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          1.0           0.0            0.0          1.0              0.0            1.0                     0.0                     0.0          0.0            1.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          0.0          1.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+1         2         108.0      1.0     103.0   108-1-103      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0                1.0              0.0           0.0               0.0                0.0              1.0           0.0               0.0           1.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           1.0            0.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          0.0           1.0            0.0          0.0              0.0            0.0                     0.0                     0.0          0.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          0.0          1.0          1.0          0.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+2         3         108.0      1.0      66.0    108-1-66      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0           1.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           1.0            0.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          1.0           0.0            0.0          0.0              1.0            0.0                     1.0                     1.0          0.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          0.0          1.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+3         4         108.0      1.0      65.0    108-1-65      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0           1.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           0.0            1.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          1.0           0.0            0.0          0.0              1.0            0.0                     1.0                     0.0          0.0            1.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+4         5         108.0      1.0      42.0    108-1-42      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0           0.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           0.0            0.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          0.0           0.0            0.0          0.0              0.0            0.0                     0.0                     0.0          0.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+
+
+```
+
+```python
+df = pd.read_csv('boulder2023final.csv', low_memory=False)
+print("Shape:", df.shape)
+print("Columns:", df.columns.tolist())
+print(df.head(10))
+
+
+```
+
+```text
+Shape: (118787, 127)
+Columns: ['CvrNumber', 'TabulatorNum', 'BatchId', 'RecordId', 'ImprintedId', 'BallotType', 'Aaron Brockett(1)', 'Nicole Speer(1)', 'Bob Yates(1)', 'Paul Tweedlie(1)', 'Aaron Brockett(2)', 'Nicole Speer(2)', 'Bob Yates(2)', 'Paul Tweedlie(2)', 'Aaron Brockett(3)', 'Nicole Speer(3)', 'Bob Yates(3)', 'Paul Tweedlie(3)', 'Aaron Brockett(4)', 'Nicole Speer(4)', 'Bob Yates(4)', 'Paul Tweedlie(4)', 'Terri Brncic', 'Jenny Robins', 'Aaron Gabriel Neyer', 'Jacques Decalo', 'Silas Atkins', 'Waylon Lewis', 'Ryan Schuchard', 'Tara Winer', 'Tina Marquis', 'Taishya Adams', 'Tim Barnes', 'JD Mangat', 'Eric Ryant', 'John W. Watson', 'Gala W. Orba', 'David Fridland', 'Crystal Gallegos', 'Ethan Augreen', 'Joan Peck', 'Terri Goon', 'Sean P. McCoy', 'Steve Altschuler', 'Beka Venturella', 'Nia Wassink', 'Diane Crist', 'Harrison Earl', 'Ron Gallegos', 'Gary Hodges', 'Susie Hidalgo-Fahring', 'Spencer Adams', 'Sherry Sommer', 'Chris Leh', 'Josh Cooperman', 'J. Caleb Dickinson', 'Deborah Fahey', 'George Colbert', 'Dietrich Hoefner', 'Barbara Hamlington', 'Jason Unger', 'Neil Fishman', 'Andrew Steffl', 'Alex Medler', 'Cynthia Nevison', 'Andrew Brandt', 'Lalenia Quinlan Aweida', 'Anil Kiran Pesaramelli', 'Stuart Lord', 'Jorge ChÃ¡vez', 'Kevin G. Morris', 'Kyri Cox', 'Brenda L. Wyss', 'Brad Shochat', 'Ryan Wilcken', 'Dawn Kirk', 'Nancy Rumfelt', 'Briah Freeman', 'Denise Alvine Chapman', 'Yazmin Navarro', 'Stu Boyd', 'Elizabeth Kearney', 'Unnamed: 82', 'Unnamed: 83', 'Unnamed: 84', 'Unnamed: 85', 'Unnamed: 86', 'Unnamed: 87', 'Unnamed: 88', 'Unnamed: 89', 'Unnamed: 90', 'Unnamed: 91', 'Unnamed: 92', 'Unnamed: 93', 'Unnamed: 94', 'Unnamed: 95', 'Unnamed: 96', 'Unnamed: 97', 'Unnamed: 98', 'Unnamed: 99', 'Unnamed: 100', 'Unnamed: 101', 'Unnamed: 102', 'Unnamed: 103', 'Unnamed: 104', 'Unnamed: 105', 'Unnamed: 106', 'Unnamed: 107', 'Unnamed: 108', 'Unnamed: 109', 'Unnamed: 110', 'Unnamed: 111', 'Unnamed: 112', 'Unnamed: 113', 'Unnamed: 114', 'Unnamed: 115', 'Unnamed: 116', 'Unnamed: 117', 'Unnamed: 118', 'Unnamed: 119', 'Unnamed: 120', 'Unnamed: 121', 'Unnamed: 122', 'Unnamed: 123', 'Unnamed: 124', 'Unnamed: 125', 'Unnamed: 126']
+  CvrNumber  TabulatorNum  BatchId  RecordId ImprintedId BallotType  Aaron Brockett(1)  Nicole Speer(1)  Bob Yates(1)  Paul Tweedlie(1)  Aaron Brockett(2)  Nicole Speer(2)  Bob Yates(2)  Paul Tweedlie(2)  Aaron Brockett(3)  Nicole Speer(3)  Bob Yates(3)  Paul Tweedlie(3)  Aaron Brockett(4)  Nicole Speer(4)  Bob Yates(4)  Paul Tweedlie(4)  Terri Brncic  Jenny Robins  Aaron Gabriel Neyer  Jacques Decalo  Silas Atkins  Waylon Lewis  Ryan Schuchard  Tara Winer  Tina Marquis  Taishya Adams  Tim Barnes  JD Mangat  Eric Ryant  John W. Watson  Gala W. Orba  David Fridland  Crystal Gallegos  Ethan Augreen  Joan Peck  Terri Goon  Sean P. McCoy  Steve Altschuler  Beka Venturella  Nia Wassink  Diane Crist  Harrison Earl  Ron Gallegos  Gary Hodges  Susie Hidalgo-Fahring  Spencer Adams  Sherry Sommer  Chris Leh  Josh Cooperman  J. Caleb Dickinson  Deborah Fahey  George Colbert  Dietrich Hoefner  Barbara Hamlington  Jason Unger  Neil Fishman  Andrew Steffl  Alex Medler  Cynthia Nevison  Andrew Brandt  Lalenia Quinlan Aweida  Anil Kiran Pesaramelli  Stuart Lord  Jorge ChÃ¡vez  Kevin G. Morris  Kyri Cox  Brenda L. Wyss  Brad Shochat  Ryan Wilcken  Dawn Kirk  Nancy Rumfelt  Briah Freeman  Denise Alvine Chapman  Yazmin Navarro  Stu Boyd  Elizabeth Kearney  Unnamed: 82  Unnamed: 83  Unnamed: 84  Unnamed: 85  Unnamed: 86  Unnamed: 87  Unnamed: 88  Unnamed: 89  Unnamed: 90  Unnamed: 91  Unnamed: 92  Unnamed: 93  Unnamed: 94  Unnamed: 95  Unnamed: 96  Unnamed: 97  Unnamed: 98  Unnamed: 99  Unnamed: 100  Unnamed: 101  Unnamed: 102  Unnamed: 103  Unnamed: 104  Unnamed: 105  Unnamed: 106  Unnamed: 107  Unnamed: 108  Unnamed: 109  Unnamed: 110  Unnamed: 111  Unnamed: 112  Unnamed: 113  Unnamed: 114  Unnamed: 115  Unnamed: 116  Unnamed: 117  Unnamed: 118  Unnamed: 119  Unnamed: 120  Unnamed: 121  Unnamed: 122  Unnamed: 123  Unnamed: 124  Unnamed: 125  Unnamed: 126
+0         1         108.0      1.0     104.0   108-1-104      DS-01                1.0              0.0           0.0               0.0                0.0              1.0           0.0               0.0                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0           0.0           0.0                  0.0             0.0           1.0           0.0             1.0         1.0           0.0            1.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          1.0           0.0            0.0          1.0              0.0            1.0                     0.0                     0.0          0.0            1.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          0.0          1.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+1         2         108.0      1.0     103.0   108-1-103      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0                1.0              0.0           0.0               0.0                0.0              1.0           0.0               0.0           1.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           1.0            0.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          0.0           1.0            0.0          0.0              0.0            0.0                     0.0                     0.0          0.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          0.0          1.0          1.0          0.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+2         3         108.0      1.0      66.0    108-1-66      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0           1.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           1.0            0.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          1.0           0.0            0.0          0.0              1.0            0.0                     1.0                     1.0          0.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          0.0          1.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+3         4         108.0      1.0      65.0    108-1-65      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0           1.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           0.0            1.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          1.0           0.0            0.0          0.0              1.0            0.0                     1.0                     0.0          0.0            1.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+4         5         108.0      1.0      42.0    108-1-42      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0           0.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           0.0            0.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          0.0           0.0            0.0          0.0              0.0            0.0                     0.0                     0.0          0.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+5         6         108.0      1.0      41.0    108-1-41      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0                1.0              0.0           0.0               0.0                0.0              1.0           0.0               0.0           1.0           0.0                  1.0             0.0           0.0           0.0             0.0         1.0           0.0            1.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          0.0           1.0            0.0          0.0              1.0            0.0                     1.0                     0.0          1.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          0.0          1.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+6         7         108.0      1.0      19.0   0108-1-19      DS-01                1.0              0.0           0.0               0.0                0.0              1.0           0.0               0.0                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0           0.0           0.0                  0.0             0.0           1.0           0.0             1.0         1.0           0.0            1.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          1.0           0.0            0.0          1.0              0.0            1.0                     0.0                     0.0          0.0            1.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          0.0          0.0          1.0          0.0          0.0          1.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+7         8         108.0      1.0       1.0    0108-1-1      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0                0.0              1.0           0.0               0.0                1.0              0.0           0.0               0.0           1.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           1.0            0.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          1.0           0.0            0.0          0.0              1.0            0.0                     1.0                     0.0          1.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          0.0          1.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+8         9         108.0      1.0     145.0   108-1-145      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               1.0                0.0              1.0           0.0               0.0                1.0              0.0           0.0               0.0           1.0           1.0                  0.0             0.0           1.0           0.0             0.0         0.0           1.0            0.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          1.0           0.0            1.0          0.0              0.0            0.0                     1.0                     0.0          1.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          0.0          1.0          1.0          0.0          1.0          0.0          1.0          0.0          1.0          0.0          0.0          1.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+9        10         108.0      1.0     144.0   108-1-144      DS-01                0.0              0.0           1.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0                0.0              0.0           0.0               0.0           1.0           1.0                  0.0             0.0           0.0           0.0             0.0         1.0           1.0            0.0         NaN        NaN         NaN             NaN           NaN             NaN               NaN            NaN        NaN         NaN            NaN               NaN              NaN          NaN          NaN            NaN           NaN          NaN                    NaN            NaN            NaN        NaN             NaN                 NaN            NaN             NaN               NaN                 NaN          0.0           0.0            0.0          0.0              0.0            0.0                     0.0                     0.0          0.0            0.0              NaN       NaN             NaN           NaN           NaN        NaN            NaN            NaN                    NaN             NaN       NaN                NaN          NaN          NaN          1.0          0.0          1.0          0.0          1.0          0.0          0.0          1.0          1.0          0.0          1.0          0.0          1.0          0.0          NaN          NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN           NaN
+
+
+```
+
+```python
+mayor_cols = [c for c in df.columns if any(k in c for k in ['Brockett', 'Speer', 'Yates', 'Tweedlie'])]
+print("Mayoral columns:", mayor_cols)
+
+# Check non-null count for mayoral columns
+print(df[mayor_cols].notna().sum())
+
+
+```
+
+```text
+Mayoral columns: ['Aaron Brockett(1)', 'Nicole Speer(1)', 'Bob Yates(1)', 'Paul Tweedlie(1)', 'Aaron Brockett(2)', 'Nicole Speer(2)', 'Bob Yates(2)', 'Paul Tweedlie(2)', 'Aaron Brockett(3)', 'Nicole Speer(3)', 'Bob Yates(3)', 'Paul Tweedlie(3)', 'Aaron Brockett(4)', 'Nicole Speer(4)', 'Bob Yates(4)', 'Paul Tweedlie(4)']
+Aaron Brockett(1)    34249
+Nicole Speer(1)      34249
+Bob Yates(1)         34249
+Paul Tweedlie(1)     34249
+Aaron Brockett(2)    34249
+Nicole Speer(2)      34249
+Bob Yates(2)         34249
+Paul Tweedlie(2)     34249
+Aaron Brockett(3)    34249
+Nicole Speer(3)      34249
+Bob Yates(3)         34249
+Paul Tweedlie(3)     34249
+Aaron Brockett(4)    34249
+Nicole Speer(4)      34249
+Bob Yates(4)         34249
+Paul Tweedlie(4)     34249
+dtype: int64
+
+
+```
+
+```python
+# Let's inspect rows where voters cast mayoral votes
+mayor_df = df.dropna(subset=['Aaron Brockett(1)'])
+print("Number of ballots with mayoral choices:", len(mayor_df))
+
+# Let's see how ranks work for a few rows
+rank_cols_1 = ['Aaron Brockett(1)', 'Nicole Speer(1)', 'Bob Yates(1)', 'Paul Tweedlie(1)']
+rank_cols_2 = ['Aaron Brockett(2)', 'Nicole Speer(2)', 'Bob Yates(2)', 'Paul Tweedlie(2)']
+
+print("\nFirst rank choices sample:")
+print(mayor_df[rank_cols_1].head(10))
+
+print("\nSecond rank choices sample:")
+print(mayor_df[rank_cols_2].head(10))
+
+
+```
+
+```text
+Number of ballots with mayoral choices: 34249
+
+First rank choices sample:
+   Aaron Brockett(1)  Nicole Speer(1)  Bob Yates(1)  Paul Tweedlie(1)
+0                1.0              0.0           0.0               0.0
+1                0.0              0.0           1.0               0.0
+2                0.0              0.0           1.0               0.0
+3                0.0              0.0           1.0               0.0
+4                0.0              0.0           1.0               0.0
+5                0.0              0.0           1.0               0.0
+6                1.0              0.0           0.0               0.0
+7                0.0              0.0           1.0               0.0
+8                0.0              0.0           1.0               0.0
+9                0.0              0.0           1.0               0.0
+
+Second rank choices sample:
+   Aaron Brockett(2)  Nicole Speer(2)  Bob Yates(2)  Paul Tweedlie(2)
+0                0.0              1.0           0.0               0.0
+1                0.0              0.0           0.0               1.0
+2                0.0              0.0           0.0               1.0
+3                0.0              0.0           0.0               0.0
+4                0.0              0.0           0.0               0.0
+5                0.0              0.0           0.0               1.0
+6                0.0              1.0           0.0               0.0
+7                0.0              0.0           0.0               1.0
+8                0.0              0.0           0.0               1.0
+9                0.0              0.0           0.0               0.0
+
+
+```
+
+```python
+# Let's see how many voters selected each candidate at 1st preference, vs ANY preference (1, 2, 3, or 4)
+cands = ['Aaron Brockett', 'Nicole Speer', 'Bob Yates', 'Paul Tweedlie']
+
+stats = []
+for c in cands:
+    r1 = (mayor_df[f'{c}(1)'] == 1).sum()
+    r2 = (mayor_df[f'{c}(2)'] == 1).sum()
+    r3 = (mayor_df[f'{c}(3)'] == 1).sum()
+    r4 = (mayor_df[f'{c}(4)'] == 1).sum()
+    any_rank = ((mayor_df[f'{c}(1)'] == 1) | (mayor_df[f'{c}(2)'] == 1) | (mayor_df[f'{c}(3)'] == 1) | (mayor_df[f'{c}(4)'] == 1)).sum()
+    stats.append({
+        'Candidate': c,
+        'Rank 1': r1,
+        'Rank 2': r2,
+        'Rank 3': r3,
+        'Rank 4': r4,
+        'Any Rank': any_rank
+    })
+
+stats_df = pd.DataFrame(stats)
+print(stats_df)
+
+
+```
+
+```text
+        Candidate  Rank 1  Rank 2  Rank 3  Rank 4  Any Rank
+0  Aaron Brockett   11540   10000    2810    1106     25374
+1    Nicole Speer    6397   10315    4807    1510     22970
+2       Bob Yates   14291    3553    6097    2025     25511
+3   Paul Tweedlie     760    2155    2959    8987     14802
+
+
+```
+
+**Yes, the rank choice matters significantly** when identifying or analyzing which voters cast ballots for mayoral candidates in a ranked-choice voting (RCV) dataset like the 2023 Boulder mayoral election (`boulder2023final.csv`).
+
+Here is how rankings impact voter search and analysis in this dataset:
+
+---
+
+### 1. Distinct Data Columns for Each Rank
+
+In the dataset, mayoral selections are recorded across multiple rank-specific columns for each candidate rather than a single column:
+
+* **1st Preference Columns:** `Aaron Brockett(1)`, `Nicole Speer(1)`, `Bob Yates(1)`, `Paul Tweedlie(1)`
+* **2nd Preference Columns:** `Aaron Brockett(2)`, `Nicole Speer(2)`, `Bob Yates(2)`, `Paul Tweedlie(2)`
+* **3rd Preference Columns:** `Aaron Brockett(3)`, `Nicole Speer(3)`, `Bob Yates(3)`, `Paul Tweedlie(3)`
+* **4th Preference Columns:** `Aaron Brockett(4)`, `Nicole Speer(4)`, `Bob Yates(4)`, `Paul Tweedlie(4)`
+
+If you search only for 1st-choice votes (`Rank 1`), you will miss a substantial portion of the overall support/ballots cast for candidates.
+
+---
+
+### 2. First-Preference Support vs. Any-Rank Support
+
+Across the 34,249 voters who filled out the mayoral contest in this dataset, the distribution of votes across ranks differs dramatically:
+
+| Candidate | Rank 1 Votes | Rank 2 Votes | Rank 3 Votes | Rank 4 Votes | **Total Ballots Including Candidate (Any Rank)** |
+| --- | --- | --- | --- | --- | --- |
+| **Bob Yates** | **14,291** | 3,553 | 6,097 | 2,025 | **25,511** |
+| **Aaron Brockett** | **11,540** | 10,000 | 2,810 | 1,106 | **25,374** |
+| **Nicole Speer** | **6,397** | 10,315 | 4,807 | 1,510 | **22,970** |
+| **Paul Tweedlie** | **760** | 2,155 | 2,959 | 8,987 | **14,802** |
+
+---
+
+### 3. Key Takeaways for Analysis
+
+* **First-Choice Only Searches Miss Transfer Dynamics:** Searching solely for 1st-preference votes shows Bob Yates ahead (14,291 vs 11,540). However, evaluating 2nd preferences shows Aaron Brockett and Nicole Speer receiving large shares of 2nd-choice support (10,000+ each), which ultimately decided the election when lower-ranked candidates were eliminated.
+* **Filter Broadly vs. Specifically:**
+* **To find ALL voters who interacted with a candidate:** Check if the value is `1` in **any** of that candidate's rank columns `(1)`, `(2)`, `(3)`, or `(4)`.
+* **To find core base voters:** Filter specifically where the 1st preference `Candidate(1) == 1.0`.
+
 
 ### Sentence 3
 
