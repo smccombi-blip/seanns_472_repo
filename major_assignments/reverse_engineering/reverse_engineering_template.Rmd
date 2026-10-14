@@ -25,7 +25,9 @@ In this notebook, we are reverse engineering the story, [STORY NAME](STORY URL)
 Loading required libraries for this analysis.
 
 ```{r echo=FALSE, message=FALSE}
-
+options(scipen=999)
+install.packages("tidyverse") 
+library(tidyverse)
 ```
 
 ## Load and Cleaning Data
@@ -39,6 +41,7 @@ In this section, describe the source of the data, write a basic data dictionary 
 
 # Clean required data and prepare for analysis if needed. 
 
+boulder_2023_final <- read_csv("data/boulder2023final.csv")
 
 ```
 
@@ -60,11 +63,17 @@ In this notebook, we are reverse engineering five sentences from the story.
 ### Sentence 2
 
 * **Sentence text**: [Paste in sentence to engineer here]
-* **Analysis summary**: [Write up two to three sentences describing the results of your analysis.  Were you able to confirm the finding? If not, why not?]
+* **Analysis summary**: [Write up two to three sentences describing the results of your analysis.  Were you able to confirm the finding? If not, why not?] 
 
 ```{r}
 # Put code to reverse engineer sentence here
-
+boulder_2023_final |>
+filter(
+    `Aaron Brockett(1)` == 1, 
+    `Nicole Speer(1)` == 1, 
+    `Taishya Adams` == 1,
+    `Ryan Schuchard` == 1 
+  )
 # Display results of code below this codeblock
 
 ```
