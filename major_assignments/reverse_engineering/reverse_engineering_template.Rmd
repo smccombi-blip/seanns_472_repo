@@ -163,7 +163,7 @@ CVR_candidates |>
 ### Sentence 2
 
 * **Sentence text**: "And about 29% of voters cast their ballots for the entire Boulder Progressive’s slate of candidates. Because Boulder Progressives only endorsed two city council candidates, this percentage includes ballots where voters supported any of the other candidates, including those endorsed by Boulder Elevated or those who were not endorsed by either of the two committees: Silas Atkins, Waylon Lewis, Aaron Gabriel Neyer, and Jacques Decalo."
-* **Analysis summary**: This code chunk displays the voters that ranked Aaron Brockett or Nicole Speer as #1 in the mayoral election, showcasing who placed a Progressive candidate at the top. This code also shows the voters who cast their ballots for Taishya Adams and Ryan Schuchard for Boulder City Council.
+* **Analysis summary**: I came up with this specific code chunk as it allowed me to filter out specifically the progressive candidates of the 2023 races. Filtering out which voters ranked any of these candidates as #1 allowed me to calculate the percentage of voters who cast their votes for the progressive slate. This includes both progressive mayoral candidates and both progressive council candidates. This code chunk displays the voters that ranked Aaron Brockett or Nicole Speer as #1 in the mayoral election, showcasing who placed a Progressive candidate at the top. This code also shows the voters who cast their ballots for Taishya Adams and Ryan Schuchard for Boulder City Council.
 
 ```{r}
 # Put code to reverse engineer sentence here
@@ -172,7 +172,7 @@ filter(
     `Aaron Brockett(1)` == 1, 
     `Nicole Speer(1)` == 1, 
     `Taishya Adams` == 1,
-    `Ryan Schuchard` == 1 
+    `Ryan Schuchard` == 1
   )
 # Display results of code below this codeblock
 
