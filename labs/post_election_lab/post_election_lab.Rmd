@@ -94,7 +94,7 @@ texas_results |>
 
 
 ```{r}
-texas_results |>
+texas_results <- texas_results |>
   mutate(swing = dem_margin_2026 - dem_margin_2024) |>
   arrange(desc(swing)) |>
   select(county, dem_margin_2024, dem_margin_2026, swing)
