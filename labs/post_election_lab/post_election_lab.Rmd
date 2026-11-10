@@ -95,7 +95,7 @@ texas_results |>
 
 ```{r}
 texas_results |>
-  mutate(swing = dem_margin_2026 - dem_margin_2024). |>
+  mutate(swing = dem_margin_2026 - dem_margin_2024) |>
   arrange(desc(swing)) |>
   select(county, dem_margin_2024, dem_margin_2026, swing)
 ```
@@ -141,12 +141,12 @@ texas_combined_data <- inner_join(texas_results, tx_clean_population, by = "coun
 
 ```{r}
 texas_combined_data |>
-  mutate(votes_per_1k = (votes_2026 / adult_pop) * 1000)
+  mutate(votes_per_capita = (votes_2026 / adult_pop) * 1000)
 texas_combined_data |>
-  arrange(desc(votes_per_1k)) |>
+  arrange(desc(votes_per_capita)) |>
   head(5)
 texas_combined_data |>
-  arrange(votes_per_1k) |>
+  arrange(votes_per_capita) |>
   head(5)
 ```
 
