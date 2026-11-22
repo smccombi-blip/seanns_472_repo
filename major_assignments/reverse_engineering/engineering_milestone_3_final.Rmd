@@ -1,0 +1,532 @@
+---
+title: "Untitled"
+author: "Aidan Hughes"
+date: "2026-11-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("readxl")
+```
+
+
+```{r}
+# Turn off scientific notation
+options(scipen=999)
+# load the tidyverse and read_excel
+library(tidyverse)
+library(readxl)
+library(janitor)
+```
+
+
+## R Markdown
+
+```{r}
+f <- "data/Redacted-2023Coordinated-CVR.xlsx"
+
+# Read the three header rows (rows 2, 3 and 4); skip = 1 ignores only row 1
+hdr <- read_excel(f, skip = 1, n_max = 3, col_names = FALSE, col_types = "text")
+
+# Join: row 4 first, then row 2 (the contest), then row 3 (the choice)
+# hdr[1, ] is row 2, hdr[2, ] is row 3, hdr[3, ] is row 4
+new_names <- paste(hdr[3, ], hdr[1, ], hdr[2, ], sep = "_")
+
+# Delete the leftover "NA" pieces from empty cells
+new_names <- gsub("NA_|_NA", "", new_names)
+
+# Read the real data (row 5 onward) with the new names
+cvr <- read_excel(f, skip = 4, col_names = new_names)
+
+# Check the result
+names(cvr)
+```
+
+```{r}
+colnames(cvr)
+```
+
+```{r}
+cvr <- cvr |>
+  clean_names()
+
+colnames(cvr)
+```
+## 0.- Cleaning, Grouping, and Quick-Index - Isabelle ##
+
+Thanks for all the above, Prof. Hughes!
+
+In this section, I'll rename the columns from their CSV names to more easily-readable titles that reflect the candidate votes. Then, the renamed candidates will be separated into additional data tables for their race. Non-Boulder races that do not track data will be removed from the data table. Last, I'll include a short index of tables, for reference while working.
+
+The data in the CVR document is sourced from the results of the Boulder County, CO Election Ballot, for the November 07, 2023 Coordinated Election.  A copy of the 2023 English Sample ballot can be found here: https://assets.bouldercounty.gov/wp-content/uploads/2023/09/2023-English-Sample-Ballot.pdf 
+
+#Quick-Index
+-------
+Boulder Elections Data Tables
+
+boulder_mayoral_votes
+boulder_council_votes
+boulder_school_districts
+boulder_propositions
+
+##Ballot Measures##
+-----
+
+STATE PROPOSITION HH 
+Votes: Yes/For , No/Against 
+
+"Shall the state reduce property taxes for homes and businesses, including expanding property tax relief for seniors, and backfill counties, water districts, fire districts, ambulance and hospital districts, and other local governments and fund school districts by using a portion of the state surplus up to the proposition HH cap as defined in this measure?" 
+
+-----
+
+STATE PROPOSITION II 
+Votes: Yes/For , No/Against 
+
+"Without raising taxes, may the state retain and spend revenues from taxes on cigarettes, tobacco, and other nicotine products and maintain tax rates on cigarettes, tobacco, and other nicotine products and use these revenues to invest twenty-three million six hundred fifty thousand dollars to enhance the voluntary Colorado preschool program and make it widely available for free instead of reducing these tax rates and refunding revenues to cigarette wholesalers, tobacco product distributors, nicotine products distributors, and other taxpayers, for exceeding an estimate included in the ballot information booklet for proposition EE?"
+
+-----
+
+COUNTY PROPOSITION 1A
+Votes: Yes/For , No/Against 
+
+OPEN SPACE SALES AND USE TAX EXTENSION AND REVENUE CHANGE WITH NO INCREASE IN ANY COUNTY TAX, SHALL THE COUNTY'S EXISTING 0.05% OPEN SPACE SALES AND USE TAX BE EXTENDED FOR FIFTEEN (15) YEARS FOR THE PURPOSES OF ACQUIRING, IMPROVING, MANAGING, AND MAINTAINING OPEN SPACE LANDS AND OTHER OPEN SPACE PROPERTY INTERESTS; AND SHALL THE REVENUES AND THE EARNINGS ON THE INVESTMENT OF THE PROCEEDS OF SUCH TAX CONSTITUTE A VOTER-APPROVED REVENUE CHANGE; ALL IN ACCORDANCE WITH BOARD OF COUNTY COMMISSIONERS' RESOLUTION NO. 2023-068?
+
+-----
+
+COUNTY PROPOSITION 1B 
+Votes: Yes/For , No/Against 
+
+AFFORDABLE AND ATTAINABLE SALES AND USE TAX  EXTENSION AND REVENUE CHANGE WITH NO INCREASE IN ANY COUNTY TAX, SHALL THE COUNTY'S EXISTING 0.185% SALES AND USE TAX APPROVED IN 2018 PURSUANT TO RESOLUTION NO. 2018-76 BE EXTENDED FOR FIFTEEN (15) YEARS FOR THE PURPOSES OF FUNDING AFFORDABLE AND ATTAINABLE HOUSING AND RELATED SUPPORT SERVICES WITHIN BOULDER COUNTY, INCLUDING BUT NOT LIMITED TO: THE COSTS OF DEVELOPMENT, OPERATION, ACQUISITION, PRESERVATION, RENOVATION, MAINTENANCE AND CONSTRUCTION OF FOR-SALE AND RENTAL HOMES FOR LOW AND MODERATE INCOME HOUSEHOLDS AND LOCAL WORKFORCE; SUPPORTIVE HOUSING; SERVICES THAT SUPPORT HOUSING STABILITY; GRANTS TO HOUSING AUTHORITIES, NONPROFIT AFFORDABLE HOUSING PROVIDERS, AND LOCAL MUNICIPALITIES; AND SHALL THE REVENUES AND THE EARNINGS ON THE INVESTMENT OF THE PROCEEDS OF SUCH TAX CONSTITUTE A VOTER APPROVED REVENUE CHANGE; ALL IN ACCORDANCE WITH BOARD OF COUNTY COMMISSIONERS' RESOLUTION NO. 2023-070?
+
+-----
+
+CITY PROPOSITION 2A
+Votes: Yes/For , No/Against
+
+CITY SALES USE AND TAX EXTENSION (TABOR) WITHOUT RAISING ADDITIONAL TAXES, SHALL THE EXISTING 0.15 CENT CITY SALES AND USE TAX FOR GENERAL FUND PURPOSES, APPROVED BY THE VOTERS BY ORDINANCE 7300, BE EXTENDED BEYOND THE CURRENT EXPIRATION DATE OF DECEMBER 31, 2024, UNTIL DECEMBER 31, 2044, WITH THE REVENUE FROM SUCH TAX EXTENSION AND ALL EARNINGS THEREON BE USED TO FUND SERVICES AND PROJECTS AS FOLLOWS: · 50% FOR FIRE AND EMERGENCY RESPONSE SERVICES, PUBLIC SAFETY SERVICES, HUMAN SERVICES, HOMELESSNESS SOLUTIONS AND SERVICES, PARKS, AND OTHER GENERAL FUND PURPOSES; · 50% FOR ARTS, CULTURE, AND HERITAGE PURPOSES; INCLUDING DIRECT AND GRANT FUNDING FOR ARTS AND CULTURE NONPROFITS, PROFESSIONAL ARTISTS, ARTS EDUCATION, VENUES AND WORKSPACES, PUBLIC ART, AND MULTI-CULTURAL PROGRAMS; AND IN CONNECTION THEREWITH SHALL ANY EARNINGS FROM THE REVENUES FROM SUCH TAX EXTENSION CONSTITUTE A VOTER APPROVED REVENUE CHANGE AND AN EXCEPTION TO THE REVENUE AND SPENDING LIMITS OF ARTICLE X, SECTION 20 OF THE COLORADO CONSTITUTION?
+
+-----
+CITY PROPOSITION 2B 
+Votes: Yes/For , No/Against 
+
+Elections Administrative Charter Cleanup Shall Sections 27, 37, 39, 46, and 57 of the city Charter be amended pursuant to Ordinance 8587 to: · remove the requirement that signers to petitions appear personally before the city clerk; · clarify that state law governs the process for charter amendments; · change the timing provisions of filing a petition to 160 days before an election instead of 150 days; · change the number of days that the city clerk has to approve a petition to 15 days from 10 days; and · change the number of days that the city clerk has to verify petition signatures from 10 to 15?
+
+-----
+CITY PROPOSITION 302 (SAFEZONES4KIDS)
+Votes: Yes/For , No/Against 
+
+Safe Zones 4 Kids Shall Section 8-3-21, B.R.C. 1981, be amended to add a provision to prioritize removal of prohibited items, such as tents, temporary structures, or propane tanks, within five hundred feet of a school or fifty feet of any multi-use path or sidewalk pursuant to Ordinance 8586?
+-----
+
+-----
+#City of Boulder Mayoral Renaming#
+-----
+Ranked Choice Voting (rank candidates 1-4), 1 elected
+Candidates:
+	Aaron Brockett
+	Nicole Speer 
+	Bob Yates 
+	Paul Tweedle 
+```{r} 
+
+cleaned_cvr <- cvr |>
+ rename(
+        #aaron brockett#
+        aaron_brockett_first =  city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_aaron_brockett_1,
+        aaron_brockett_second = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_aaron_brockett_2,
+        aaron_brockett_third= city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_aaron_brockett_3,
+        aaron_brockett_fourth=  city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_aaron_brockett_4,
+        #nicole speer#
+        nicole_speer_first = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_nicole_speer_1,
+        nicole_speer_second = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_nicole_speer_2,
+        nicole_speer_third = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_nicole_speer_3,
+        nicole_speer_fourth = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_nicole_speer_4,
+        #bob yates#
+        bob_yates_first = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_bob_yates_1,
+        bob_yates_second = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_bob_yates_2,
+        bob_yates_third = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_bob_yates_3,
+        bob_yates_fourth = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_bob_yates_4,
+        #paul tweedlie# 
+        paul_tweedlie_first = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_paul_tweedlie_1,
+        paul_tweedlie_second = city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_paul_tweedlie_2,
+        paul_tweedlie_third= city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_paul_tweedlie_3,
+        paul_tweedlie_fourth= city_of_boulder_mayoral_candidates_number_of_positions_1_number_of_ranks_4_paul_tweedlie_4
+        )
+cleaned_cvr
+```
+-----
+#City of Boulder Mayoral Grouping#
+-----
+```{r} 
+boulder_mayoral_votes <- cleaned_cvr|>
+  select(aaron_brockett_first, 
+         aaron_brockett_second, 
+         aaron_brockett_third, 
+         aaron_brockett_fourth, 
+         nicole_speer_first, 
+         nicole_speer_second, 
+         nicole_speer_third, 
+         nicole_speer_fourth, 
+         bob_yates_first, 
+         bob_yates_second, 
+         bob_yates_third, 
+         bob_yates_fourth, 
+         paul_tweedlie_first, 
+         paul_tweedlie_second, 
+         paul_tweedlie_third, 
+         paul_tweedlie_fourth)
+
+(boulder_mayoral_votes)
+```
+-----
+#City of Boulder Council Renaming#
+-----
+Multi-Winner Limited Plurality Vote (select up to 4 out of 10),4 elected
+
+Candidates:
+	Terri Brncic 
+	 Jenny Robins 
+	 Aaron Gabriel Neyer 
+	 Jacques Decalo 
+	 Silas Atkins 
+	 Waylon Lewis 
+	 Ryan Schuchard 
+	 Tara Winer 
+	 Tina Marquis 
+	 Taishya Adams 
+```{r}
+cleaned_cvr <- cleaned_cvr |>
+ rename (terri_brncic_vote = city_of_boulder_council_candidates_vote_for_4_terri_brncic,
+          jenny_robins_vote = city_of_boulder_council_candidates_vote_for_4_jenny_robins,
+          aaron_gabriel_neyer_vote = city_of_boulder_council_candidates_vote_for_4_aaron_gabriel_neyer,
+          jacques_decalo_vote = city_of_boulder_council_candidates_vote_for_4_jacques_decalo,
+          silas_atkins_vote = city_of_boulder_council_candidates_vote_for_4_silas_atkins,
+          waylon_lewis_vote = city_of_boulder_council_candidates_vote_for_4_waylon_lewis,
+          ryan_schuchard_vote = city_of_boulder_council_candidates_vote_for_4_ryan_schuchard,
+          tara_winer_vote = city_of_boulder_council_candidates_vote_for_4_tara_winer,
+          tina_marquis_vote = city_of_boulder_council_candidates_vote_for_4_tina_marquis,
+          taishya_adams_vote = city_of_boulder_council_candidates_vote_for_4_taishya_adams)
+    
+```
+-----
+#City of Boulder Council Grouping#
+-----
+```{r}
+boulder_council_votes <- cleaned_cvr |>
+  select( terri_brncic_vote,
+          jenny_robins_vote,
+          aaron_gabriel_neyer_vote,
+          jacques_decalo_vote,
+          silas_atkins_vote,
+          waylon_lewis_vote,
+          ryan_schuchard_vote,
+          tara_winer_vote,
+          tina_marquis_vote,
+          taishya_adams_vote)
+view(boulder_council_votes)
+
+```
+-----
+#Boulder Valley School District Offices#
+-----
+Majority vote, one elected per district
+
+District A 
+Candidates: 
+	Jason Unger
+	Neil Fishman 
+
+District C 
+Candidates: 
+	Andrew Steffl 
+	Alex Medler 
+	Cynthia Nevison 
+
+District D 
+Candidates: 
+	Andrew Brandt 
+	Lalenia Quinlan Aweida 
+
+District G 
+Candidates: 
+	Anil Kiran Pesaramelli 
+	Stuart Lord 
+	Jorge Chavez
+```{r}
+cleaned_cvr <- cleaned_cvr|>
+ rename (jason_unger_district_a = boulder_valley_school_district_re_2_director_district_a_4_years_vote_for_1_jason_unger,
+         neil_fishman_district_a = boulder_valley_school_district_re_2_director_district_a_4_years_vote_for_1_neil_fishman,
+         andrew_steffl_district_c = boulder_valley_school_district_re_2_director_district_c_4_years_vote_for_1_andrew_steffl,
+         alex_medler_district_c = boulder_valley_school_district_re_2_director_district_c_4_years_vote_for_1_alex_medler,
+         cynthia_nevison_district_c = boulder_valley_school_district_re_2_director_district_c_4_years_vote_for_1_cynthia_nevison,
+         andrew_brandt_district_d = boulder_valley_school_district_re_2_director_district_d_4_years_vote_for_1_andrew_brandt,
+         lalenia_quinlan_aweida_district_d = boulder_valley_school_district_re_2_director_district_d_4_years_vote_for_1_lalenia_quinlan_aweida,
+         anil_kiran_peraramelli_district_g = boulder_valley_school_district_re_2_director_district_g_4_years_vote_for_1_anil_kiran_pesaramelli,
+         stuart_lord_district_g = boulder_valley_school_district_re_2_director_district_g_4_years_vote_for_1_stuart_lord,
+         jorge_chavez_district_g = boulder_valley_school_district_re_2_director_district_g_4_years_vote_for_1_jorge_ch_a_vez)
+```
+-----
+#Boulder Valley School District Grouping#
+-----
+```{r} 
+boulder_school_districts <- cleaned_cvr |>
+  select(jason_unger_district_a,
+         neil_fishman_district_a,
+         andrew_steffl_district_c,
+         alex_medler_district_c,
+         cynthia_nevison_district_c,
+         andrew_brandt_district_d,
+         lalenia_quinlan_aweida_district_d,
+         anil_kiran_peraramelli_district_g,
+         stuart_lord_district_g,
+         jorge_chavez_district_g)
+
+```
+-----
+#Ballot Measures#
+-----
+```{r} 
+cleaned_cvr <- cleaned_cvr|>
+ rename (proposition_hh_yes = proposition_hh_statutory_vote_for_1_yes_for,
+    proposition_hh_no = proposition_hh_statutory_vote_for_1_no_against,
+    proposition_ii_yes = proposition_ii_statutory_vote_for_1_yes_for,
+    proposition_ii_no = proposition_ii_statutory_vote_for_1_no_against,
+    bcounty_issue_1a_yes = boulder_county_ballot_issue_1a_vote_for_1_yes_for,
+    bcounty_issue_1a_no = boulder_county_ballot_issue_1a_vote_for_1_no_against,
+    bcounty_issue_1b_yes = boulder_county_ballot_issue_1b_vote_for_1_yes_for,
+    bcounty_issue_1b_no = boulder_county_ballot_issue_1b_vote_for_1_no_against,
+    bcity_issue_2a_yes = city_of_boulder_ballot_issue_2a_vote_for_1_yes_for,
+    bcity_issue_2a_no = city_of_boulder_ballot_issue_2a_vote_for_1_no_against,
+    bcity_issue_2b_yes = city_of_boulder_ballot_question_2b_vote_for_1_yes_for,
+    bcity_issue_2b_no = city_of_boulder_ballot_question_2b_vote_for_1_no_against,
+    safezones_yes = city_of_boulder_ballot_question_302_vote_for_1_yes_for,
+    safezones_no = city_of_boulder_ballot_question_302_vote_for_1_no_against)
+
+```
+-----
+#Ballot Measures Grouping#
+-----
+```{r} 
+boulder_propositions <- cleaned_cvr |>
+  select(proposition_hh_yes,
+          proposition_hh_no,
+          proposition_ii_yes,
+          proposition_ii_no,
+          bcounty_issue_1a_yes,
+          bcounty_issue_1a_no,
+          bcounty_issue_1b_yes,
+          bcounty_issue_1b_no,
+          bcity_issue_2a_yes,
+          bcity_issue_2a_no,
+          bcity_issue_2b_yes,
+          bcity_issue_2b_no,
+          safezones_yes,
+          safezones_no) 
+
+```
+### 1. - Maya
+
+"According to the analysis by Boulder Reporting Lab, approximately 19% of voters cast their ballots for the entire Boulder Elevated slate, exclusively voting for its candidates."
+
+For this finding, we can filter the data for people who voted exclusively for Bob Yates for mayor and for Terri Brncic, Jennifer (Jenny) Robins, Tina Marquis, and Tara Winer for city council. The 19% statistic corrects some people's perception that most voters cast ballots for one slate of candidates.
+
+The entire cvr dataset we're working with has 118,787 observations (aka rows). This will be the denominator for getting the percentage.
+
+From below work: 6,522 obs (aka rows aka people) voted exclusively for the Boulder Elevated slate.
+
+6,522/118,787 = 0.0549 = 5.5 % -> far from 19%. What went wrong?
+
+Denominator too big? Looked into it more. This data is for the whole county, not just Boulder City.
+
+So I found the denominator we want from this webpage https://bouldervotes.org/2023.html : "34,249 city ballots counted."
+
+--> 6,522/34,249 = 0.1904289176 = 19%
+
+ChatGPT Convo: https://chatgpt.com/share/6acf194b-6cc0-83e9-bbbe-7a957b454a5a
+
+* **Analysis summary**: See above explanation. Calculated the desired 19% by dividing the number of people who voted for council members Terri Brncic, Jenny Robins, Tina Marquis, and Tara Winer; and who ranked Bob Yates number one of the four mayoral candidates-- by the number of Boulder City ballots cast.
+
+```{r}
+cvr_candidates_sentence_one <- cleaned_cvr |>
+  filter(
+    bob_yates_first == 1,
+    terri_brncic_vote == 1,
+    jenny_robins_vote == 1,
+    tina_marquis_vote == 1,
+    tara_winer_vote == 1) |>
+  group_by(cvr_number) |>
+  view(cvr_candidates_sentence_one)
+```
+
+Here is the ChatGPT convo I used for the cleaning I did when we submitted the first code-containing milestone, which contained my data cleaning and work for the first sentence/finding. The cleaning I did then worked, and the column names were not long like the ones in the cleaned dataset we are using now, so it was easier to work with.
+
+ChatGPT Convo: https://chatgpt.com/share/6acf19a2-e4e8-83ea-9d36-a6e0c904d797
+
+For reference, here is a link to the first code-containing milestone we submitted, just with some code turned into comments. (I had tried some lines that didn't work and kept them in the original submission to show my thought process; the code had not prevented me from getting the correct finding. I had the same success as above, just with different cleaning. But now, you can run the codeblocks in the following link straight through without needing to read comments to know which lines to run.)
+
+https://github.com/mhandia/Maya_JOUR472_DataJournalism_repo/blob/main/major_assignments/reverse_engineering/reverse_engineeringUpdatedNov1.Rmd 
+
+### 2. - Seann
+
+"And about 29% of voters cast their ballots for the entire Boulder Progressive’s slate of candidates. Because Boulder Progressives only endorsed two city council candidates, this percentage includes ballots where voters supported any of the other candidates, including those endorsed by Boulder Elevated or those who were not endorsed by either of the two committees: Silas Atkins, Waylon Lewis, Aaron Gabriel Neyer, and Jacques Decalo."
+
+* **Analysis summary**: 
+
+I came up with this specific code chunk as it allowed me to filter out specifically the progressive candidates of the 2023 races. Filtering out which voters ranked any of these candidates as #1 allowed me to calculate the percentage of voters who cast their votes for the progressive slate. This includes both progressive mayoral candidates and both progressive council candidates. This code chunk displays the voters that ranked Aaron Brockett or Nicole Speer as #1 in the mayoral election, showcasing who placed a Progressive candidate at the top. This code also shows the voters who cast their ballots for Taishya Adams and Ryan Schuchard for Boulder City Council.
+
+```{r}
+# Put code to reverse engineer sentence here
+cleaned_cvr |>
+filter(
+  aaron_brockett_first == 1, 
+    taishya_adams_vote== 1,
+    ryan_schuchard_vote == 1,
+    tara_winer_vote == 1,
+    waylon_lewis_vote == 1
+  )
+
+# Display results of code below this codeblock
+```
+```{r} 
+(34249/118787)*100
+```
+
+### 3. - Isabelle
+
+“All the candidates who were endorsed by Boulder Progressives opposed the Safe Zones 4 Kids ballot measure. *Even so, about 26% of voters who backed the Boulder Progressives’ slate of candidates also supported the Safe Zones 4 Kids ballot measure. By comparison, about 88% of voters who only supported the Boulder Elevated slate of candidates also voted for the Safe Zones 4 Kids measure.* All the Boulder Elevated-endorsed candidates backed the measure.”
+
+*Steps:* 
+  -Filter for Boulder Progressive ONLY voters. Export dataset.
+  -Filter for Boulder Elevated Slate ONLY voters. Export dataset. 
+  -Count and determine percentages of SafeZones voters in the two groups.
+  
+*Boulder Elevated*:  
+Bob Yates for mayor 
+Terri Brncic, Tina Marquis, Tara Winer and Jennifer Robins for city council. 
+
+*Boulder Progressives*
+ Aaron Brockett and Nicole Speer for mayor
+ *shouldn't it be /or/?*
+ Ryan Schuchard and Taishya Adams for council
+-----
+
+*A* 
+1.  25.7% of Slate Boulder Progressives said yes to SafeZones. 72.2% of Slate Boulder Progressives said no to SafeZones.
+2. 88.0% of Slate Boulder Elevate said yes to SafeZones. 10.8% of Slate Boulder Elevated said no to SafeZones
+```{r}
+boulder_progressives <- cleaned_cvr |>
+filter(aaron_brockett_first == 1 | nicole_speer_first == 1,
+       #since only one candidate can be first at a time, legally, we'd want an "OR" here#
+       taishya_adams_vote == 1, 
+       ryan_schuchard_vote == 1)
+
+
+nrow(boulder_progressives)
+#total = 9839#
+```
+```{r} 
+boulder_progressives |>
+  group_by(safezones_yes)|>
+  summarise(
+    total_yes = sum(safezones_yes),
+    total_no = sum(safezones_no))
+ 
+boulder_progressives
+#7107 progressives say no#
+#2526 progressives say yes#
+#9839 progressives in total#
+
+```
+```{r}
+boulder_elevated <- cleaned_cvr |>
+filter( bob_yates_first == 1,
+       terri_brncic_vote== 1, 
+       tina_marquis_vote == 1, 
+       tara_winer_vote == 1,
+       jenny_robins_vote == 1)
+
+nrow(boulder_elevated)
+
+#total = 6522#
+```
+```{r} 
+boulder_elevated |>
+  group_by(safezones_yes)|>
+  summarise(
+    total_yes = sum(safezones_yes),
+    total_no = sum(safezones_no))
+ 
+boulder_elevated
+#5742 elevated say yes#
+#703 say no#
+#6522 in total#
+```
+
+### 4. - Isabelle
+
+“Two other unofficial candidate committees, meanwhile — Better Boulder and Sierra Club Indian Peaks — endorsed a different mix of candidates: *Brockett for mayor and Adams, Schuchard, Winer and Lewis for city council. Less than 5% of voters voted for this exact slate of candidates.*”
+
+*Steps:* 
+  -Filter for voters who EXACTLY voted for Brockett for mayor, Adams, Schuchard, Winer, Lewis for city council. 
+  -Note amount; Divide by total, multiply by 100 to get percent
+
+```{r} 
+cleaned_cvr |>
+filter(
+    aaron_brockett_first == 1, 
+    taishya_adams_vote== 1,
+    ryan_schuchard_vote == 1,
+    tara_winer_vote == 1,
+    waylon_lewis_vote == 1,)
+# 1,482 individuals. Remember to use Maya's 34,249 number of actual ballots counted for Boulder#
+```
+```{r} 
+(1482/34249)*100
+
+```
+
+*A* 1482, or 4% of voters voted for the exact listed slate of candidates.
+
+### 5.- Isabelle
+
+“*Separately, more than 2,600 City of Boulder ballots did not include a vote for any city council candidates.* The fourth seat on the Boulder City Council was decided by 46 votes.*”
+
+*Can do this secondary question, but the smartest route seems like data viz?
+
+*Steps:* 
+Candidates:
+	Terri Brncic 
+	 Jenny Robins 
+	 Aaron Gabriel Neyer 
+	 Jacques Decalo 
+	 Silas Atkins 
+	 Waylon Lewis 
+	 Ryan Schuchard 
+	 Tara Winer 
+	 Tina Marquis 
+	 Taishya Adams  
+	 
+  -Filter for voters who voted for no council members.
+```{r}
+cleaned_cvr |>
+filter( terri_brncic_vote == 0,
+        jenny_robins_vote == 0,
+        aaron_gabriel_neyer_vote == 0,
+        jacques_decalo_vote == 0,
+        silas_atkins_vote == 0,
+        waylon_lewis_vote == 0,
+        ryan_schuchard_vote == 0,
+        tara_winer_vote == 0,
+        tina_marquis_vote == 0,
+        taishya_adams_vote == 0)
+#2,656 individuals -- the data point is correct! Let's also grab the percent#
+```
+```{r} 
+#Remember to use Maya's 34,249 number of actual ballots counted for Boulder#
+(2656/34249)*100
+```
+ *A* 2656, or 7.75% of Boulder voters did not vote for any council members.
