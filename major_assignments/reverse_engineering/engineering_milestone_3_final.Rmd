@@ -383,6 +383,7 @@ I came up with this specific code chunk as it allowed me to filter out specifica
 cleaned_cvr |>
 filter(
   aaron_brockett_first == 1, 
+  nicole_speer_first == 1,
     taishya_adams_vote== 1,
     ryan_schuchard_vote == 1,
     tara_winer_vote == 1,
